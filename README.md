@@ -20,3 +20,6 @@ To run create a new app on your workspace:
 - On Event Subscriptions, enable events.
 - On Event Subscriptions set Request URL to the url where this bot is running
 - On Event Subscriptions > Subscribe to bot event > add 'emoji_changed' event.
+- Create a channel to post messages into
+- Set SLACK_CHANNEL_ID to the channel id (found at the bottom of the 'About' section of the channel details)
+- Invite the bot into the channel so it is able to post
