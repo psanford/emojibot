@@ -3,7 +3,7 @@ module github.com/psanford/emojibot
 go 1.18
 
 require (
-	github.com/aws/aws-lambda-go v1.28.0
+	github.com/aws/aws-lambda-go v1.32.0
 	github.com/aws/aws-sdk-go v1.43.25
 	github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac
 	github.com/psanford/lambdahttp v0.0.0-20210423045543-144d41bdd39e
