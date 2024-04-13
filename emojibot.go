@@ -2,22 +2,18 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
-	"os"
-	"path"
 
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
-	"github.com/inconshreveable/log15"
 	"github.com/psanford/lambdahttp/lambdahttpv2"
 	"github.com/psanford/logmiddleware"
+	"github.com/psanford/ssmparam"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 )
@@ -29,22 +25,21 @@ var (
 
 func main() {
 	flag.Parse()
-	handler := log15.StreamHandler(os.Stdout, log15.LogfmtFormat())
-	log15.Root().SetHandler(handler)
 
-	kv := newKV()
+	sess := session.Must(session.NewSession())
+	kv := ssmparam.New(ssm.New(sess))
 
-	signingSecret, err := kv.get("SLACK_SIGNING_SECRET")
+	signingSecret, err := kv.Get("SLACK_SIGNING_SECRET")
 	if err != nil {
 		log.Fatalf("SLACK_SIGNING_SECRET not set in env or in parameter store")
 	}
 
-	token, err := kv.get("SLACK_TOKEN")
+	token, err := kv.Get("SLACK_TOKEN")
 	if err != nil {
 		log.Fatal("SLACK_TOKEN not set in env or in parameter store")
 	}
 
-	channel, err := kv.get("SLACK_CHANNEL_ID")
+	channel, err := kv.Get("SLACK_CHANNEL_ID")
 	if err != nil {
 		log.Fatal("SLACK_CHANNEL_ID not set in env or in parameter store")
 	}
@@ -131,7 +126,7 @@ type slackEvent struct {
 }
 
 func (s *server) validateSignature(r *http.Request) ([]byte, error) {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -147,53 +142,4 @@ func (s *server) validateSignature(r *http.Request) ([]byte, error) {
 	}
 
 	return body, nil
-}
-
-func (kv *kv) mustGet(key string) string {
-	v, err := kv.get(key)
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
-
-func (kv *kv) get(key string) (string, error) {
-	v := os.Getenv(key)
-	if v != "" {
-		return v, nil
-	}
-
-	ssmPath := os.Getenv("SSM_PATH")
-	if ssmPath == "" {
-		return "", errors.New("SSM_PATH not set")
-	}
-	p := path.Join(ssmPath, key)
-
-	req := ssm.GetParameterInput{
-		Name:           &p,
-		WithDecryption: aws.Bool(true),
-	}
-
-	resp, err := kv.client.GetParameter(&req)
-	if err != nil {
-		return "", fmt.Errorf("read key %s err: %w", key, err)
-	}
-	val := resp.Parameter.Value
-	if val == nil {
-		return "", errors.New("value is nil")
-	}
-	return *val, nil
-}
-
-func newKV() *kv {
-	sess := session.Must(session.NewSession())
-	ssmClient := ssm.New(sess)
-
-	return &kv{
-		client: ssmClient,
-	}
-}
-
-type kv struct {
-	client *ssm.SSM
 }
